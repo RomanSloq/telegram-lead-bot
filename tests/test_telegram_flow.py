@@ -1,8 +1,11 @@
 """Feed real aiogram updates through the routers with an in-memory Telegram API stub."""
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.methods import SendMessage
 from aiogram.types import Update
 
+from leadbot.db import Store
 from leadbot.delivery import DeliveryWorker
 from leadbot.handlers.customer import customer_router
 from leadbot.handlers.manager import manager_router
@@ -125,3 +128,55 @@ async def test_unauthorized_commands_callbacks_and_notes_do_not_mutate(store):
     assert (await store.lead(1))["status"] == "new"
     assert (await store.lead(1))["note"] == ""
     assert any(text == "Нет доступа." for text in h.texts())
+
+
+async def test_temporary_manager_delivery_recovers_after_restart_with_same_lead_id(store):
+    h = Harness(store)
+    draft_id = await submit(h)
+    now = [1000]
+    committed = Store(store.path, clock=lambda: now[0])
+    leads = await committed.leads()
+    assert len(leads) == 1
+    lead_id = leads[0]["id"]
+    assert (await committed.lead(lead_id))["source_draft_id"] == draft_id
+    deliveries = await committed.due_deliveries(now[0])
+    assert len(deliveries) == 2
+    manager_delivery = next(row for row in deliveries if row["kind"] == "manager")
+    assert manager_delivery["lead_id"] == lead_id
+
+    manager_attempts = []
+
+    async def send(recipient, text, **kwargs):
+        if recipient == 9:
+            manager_attempts.append(text)
+            if len(manager_attempts) == 1:
+                raise TelegramNetworkError(
+                    method=SendMessage(chat_id=recipient, text=text), message="temporary"
+                )
+
+    await DeliveryWorker(store, send, clock=lambda: now[0]).process_due()
+    assert await committed.lead(lead_id)
+    retry = await committed.delivery(manager_delivery["id"])
+    assert retry["state"] == "retry" and retry["attempts"] == 1
+    assert retry["next_attempt_at"] > now[0]
+
+    sent_before = len(h.sent)
+    await h.message(9, "/leads")
+    replies = [
+        method.text for method in h.sent[sent_before:] if isinstance(getattr(method, "text", None), str)
+    ]
+    assert any("Последние заявки" in reply and f"#{lead_id}" in reply for reply in replies)
+
+    now[0] = retry["next_attempt_at"] + 1
+    restarted = Store(store.path, clock=lambda: now[0])
+    await DeliveryWorker(restarted, send, clock=lambda: now[0]).process_due()
+    delivered = await restarted.delivery(manager_delivery["id"])
+    assert delivered["state"] == "sent" and delivered["attempts"] == 2
+    assert delivered["lead_id"] == lead_id
+    assert len(manager_attempts) == 2
+    assert f"Заявка #{lead_id}" in manager_attempts[-1]
+    assert len(await restarted.leads()) == 1
+    async with restarted.connect() as db:
+        async with db.execute("SELECT id,lead_id FROM deliveries WHERE kind='manager'") as cur:
+            manager_rows = await cur.fetchall()
+    assert [(row["id"], row["lead_id"]) for row in manager_rows] == [(manager_delivery["id"], lead_id)]

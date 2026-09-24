@@ -5,6 +5,7 @@ from tests.test_telegram_flow import Harness
 
 
 def test_configuration_rejects_missing_token_and_bad_manager_ids(monkeypatch):
+    monkeypatch.setattr("leadbot.config.load_dotenv", lambda **kwargs: None)
     monkeypatch.delenv("BOT_TOKEN", raising=False)
     monkeypatch.setenv("MANAGER_IDS", "9")
     with pytest.raises(ValueError, match="BOT_TOKEN"):
