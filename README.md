@@ -12,21 +12,11 @@
 
 ### Клиент
 
-<table>
-<tr>
-<td valign="top"><img src="docs/images/01-client-start.png" width="400" alt="Клиент выбирает услугу в Telegram"><br>Клиент начинает заявку в Telegram: выбирает услугу без отдельной формы.</td>
-<td valign="top"><img src="docs/images/02-client-review.png" width="300" alt="Клиент проверяет заявку перед подтверждением"><br>Перед подтверждением собранные данные можно проверить и исправить.</td>
-</tr>
-</table>
+![Сценарий клиента в Telegram](docs/images/client-flow.png)
 
 ### Менеджер
 
-<table>
-<tr>
-<td valign="top"><img src="docs/images/03-manager-new-lead.png" width="300" alt="Новая структурированная заявка у менеджера"><br>Менеджер получает структурированную заявку с действиями Mini CRM.</td>
-<td valign="top"><img src="docs/images/04-manager-workflow.png" width="600" alt="Та же заявка в работе с сохранённой заметкой"><br>Та же заявка в статусе «В работе»; внутренняя заметка сохранена.</td>
-</tr>
-</table>
+![Работа менеджера в Telegram](docs/images/manager-flow.png)
 
 ## Сохранность и восстановление
 
