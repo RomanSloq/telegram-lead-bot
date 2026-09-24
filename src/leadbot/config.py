@@ -6,6 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from leadbot.domain import parse_id
+
 
 @dataclass(frozen=True)
 class Config:
@@ -21,9 +23,10 @@ def load_config() -> Config:
         raise ValueError("BOT_TOKEN is missing or invalid; set it in local .env")
     raw_ids = os.getenv("MANAGER_IDS", "").strip()
     try:
-        ids = frozenset(int(part.strip()) for part in raw_ids.split(","))
-        if not ids or any(i <= 0 for i in ids):
+        parsed = [parse_id(part.strip()) for part in raw_ids.split(",")]
+        if not parsed or any(i is None for i in parsed):
             raise ValueError
+        ids = frozenset(parsed)
     except ValueError as exc:
         raise ValueError("MANAGER_IDS must be comma-separated positive Telegram user IDs") from exc
     path = Path(os.getenv("DATABASE_PATH", "leadbot.sqlite3"))

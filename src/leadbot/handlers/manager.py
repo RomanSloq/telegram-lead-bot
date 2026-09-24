@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, Message
 
 from leadbot.db import Store
 from leadbot.delivery import DeliveryWorker
+from leadbot.domain import parse_id
 from leadbot.presentation import STATUS_LABELS, lead_buttons, lead_text, service_label
 
 
@@ -50,10 +51,11 @@ def manager_router(store: Store, worker: DeliveryWorker, manager_ids: frozenset[
             await message.answer("Нет доступа.")
             return
         parts = message.text.split()
-        if len(parts) != 2 or not parts[1].isdigit():
+        lead_id = parse_id(parts[1]) if len(parts) == 2 else None
+        if lead_id is None:
             await message.answer("Использование: /lead <ID>")
             return
-        await card(message, int(parts[1]))
+        await card(message, lead_id)
 
     @router.message(Command("delivery_failures"))
     async def failures(message: Message) -> None:
@@ -74,10 +76,11 @@ def manager_router(store: Store, worker: DeliveryWorker, manager_ids: frozenset[
             await message.answer("Нет доступа.")
             return
         parts = message.text.split()
-        if len(parts) != 2 or not parts[1].isdigit():
+        delivery_id = parse_id(parts[1]) if len(parts) == 2 else None
+        if delivery_id is None:
             await message.answer("Использование: /retry_delivery <ID доставки>")
             return
-        ok = await store.retry_delivery(int(parts[1]))
+        ok = await store.retry_delivery(delivery_id)
         if ok:
             worker.notify()
         await message.answer("Доставка возвращена в очередь." if ok else "Нет failed-доставки с этим ID.")
@@ -103,10 +106,10 @@ def manager_router(store: Store, worker: DeliveryWorker, manager_ids: frozenset[
             await callback.answer("Нет доступа.", show_alert=True)
             return
         parts = callback.data.split(":")
-        if len(parts) < 3 or not parts[2].isdigit():
+        lead_id = parse_id(parts[2]) if len(parts) >= 3 else None
+        if lead_id is None:
             await callback.answer("Кнопка устарела.", show_alert=True)
             return
-        lead_id = int(parts[2])
         lead = await store.lead(lead_id)
         if not lead:
             await callback.answer("Заявка не найдена.", show_alert=True)

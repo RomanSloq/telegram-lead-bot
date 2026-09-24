@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from leadbot.catalog import BUSINESS_NAME, FIELDS, LABELS, PROMPTS, SERVICES
 from leadbot.db import Store
 from leadbot.delivery import DeliveryWorker
-from leadbot.domain import previous_step, validate_field
+from leadbot.domain import parse_id, previous_step, validate_field
 from leadbot.presentation import review_text
 
 
@@ -72,10 +72,11 @@ def customer_router(store: Store, worker: DeliveryWorker, manager_ids: frozenset
             await callback.answer("Откройте бот в личном чате.", show_alert=True)
             return
         parts = callback.data.split(":")
-        if len(parts) < 3 or not parts[2].isdigit():
+        did = parse_id(parts[2]) if len(parts) >= 3 else None
+        if did is None:
             await callback.answer("Кнопка устарела.", show_alert=True)
             return
-        uid, did = callback.from_user.id, int(parts[2])
+        uid = callback.from_user.id
         draft = await store.draft(did, uid)
         if parts[1] == "confirm":
             try:

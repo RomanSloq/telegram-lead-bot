@@ -5,6 +5,16 @@ import re
 from leadbot.catalog import FIELDS, SERVICES
 
 
+def parse_id(value: str) -> int | None:
+    if not re.fullmatch(r"[0-9]{1,19}", value):
+        return None
+    try:
+        number = int(value)
+    except ValueError:
+        return None
+    return number if 0 < number <= 2**63 - 1 else None
+
+
 def normalize_phone(value: str) -> str | None:
     raw = value.strip()
     if not re.fullmatch(r"\+?[\d\s()\-]+", raw):
